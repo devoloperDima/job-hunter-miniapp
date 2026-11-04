@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Настройки поиска</title>
+<script src="https://telegram.org/js/telegram-web-app.js?59"></script>
+<style>
+  /* Цвета — из темы Telegram (telegram-web-app.js выставляет --tg-theme-*), запасные — для демо в браузере. */
+  :root {
+    --bg: var(--tg-theme-secondary-bg-color, #efeff4);
+    --card: var(--tg-theme-section-bg-color, var(--tg-theme-bg-color, #ffffff));
+    --text: var(--tg-theme-text-color, #000000);
+    --hint: var(--tg-theme-hint-color, #8e8e93);
+    --accent: var(--tg-theme-button-color, #2481cc);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --link: var(--tg-theme-link-color, #2481cc);
+    --header: var(--tg-theme-section-header-text-color, #6d6d72);
+    --danger: var(--tg-theme-destructive-text-color, #e53935);
+    --sep: color-mix(in srgb, var(--hint) 25%, transparent);
+    --chip: color-mix(in srgb, var(--hint) 14%, transparent);
+    --chip-on: color-mix(in srgb, var(--accent) 16%, transparent);
+    --warn-bg: color-mix(in srgb, #f5a623 16%, transparent);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not(.tg) {
+      --bg: #000000; --card: #1c1c1e; --text: #ffffff; --hint: #8e8e93; --accent: #3e88f7; --link: #3e88f7;
+      --header: #8e8e93;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    padding: 12px 16px calc(96px + env(safe-area-inset-bottom));
+    max-width: 640px; margin: 0 auto; overflow-x: hidden;
+  }
+  h1 { font-size: 22px; margin: 4px 0 2px; font-weight: 700; }
+  .sub { color: var(--hint); font-size: 14px; margin: 0 0 14px; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-radius: 10px; padding: 2px; margin-bottom: 16px;
+          position: sticky; top: 8px; z-index: 2;
+          background: color-mix(in srgb, var(--hint) 14%, var(--bg));
+          box-shadow: 0 -8px 0 8px var(--bg), 0 8px 0 0 var(--bg); }
+  .tabs button { border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px;
+                 padding: 7px 4px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+  .tabs button[aria-selected="true"] { background: var(--card); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+  .section-title { color: var(--header); font-size: 13px; text-transform: uppercase; letter-spacing: .02em;
+                   margin: 18px 4px 6px; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 12px 14px; }
+  .card + .note, .note { color: var(--hint); font-size: 13px; margin: 6px 4px 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1.5px solid transparent; background: var(--chip); color: var(--text); font: inherit; font-size: 15px;
+          padding: 7px 12px; border-radius: 18px; cursor: pointer; user-select: none; }
+  .chip[aria-pressed="true"] { background: var(--chip-on); border-color: var(--accent); color: var(--link); }
+  .row { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
+  .row + .row { border-top: 1px solid var(--sep); }
+  .row .grow { flex: 1; min-width: 0; }
+  .row small { display: block; color: var(--hint); font-size: 13px; }
+  .radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--hint); flex: none; display: grid;
+           place-items: center; }
+  .radio.on { border-color: var(--accent); }
+  .radio.on::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+  input[type=text], textarea { width: 100%; font: inherit; color: var(--text); background: var(--chip); border: 0;
+                               border-radius: 10px; padding: 10px 12px; outline: none; }
+  input[type=text]:focus, textarea:focus { box-shadow: 0 0 0 2px var(--accent); }
+  textarea { min-height: 90px; resize: vertical; }
+  .city-other { margin-top: 10px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; background: var(--chip); border-radius: 14px;
+         padding: 4px 6px 4px 10px; font-size: 14px; }
+  .tag button { border: 0; background: transparent; color: var(--hint); font-size: 16px; cursor: pointer;
+                width: 24px; height: 24px; line-height: 1; border-radius: 50%; }
+  .add { display: flex; gap: 8px; }
+  .add input { flex: 1; }
+  .btn { display: block; width: 100%; border: 0; border-radius: 10px; padding: 12px; font: inherit; font-weight: 600;
+         background: var(--accent); color: var(--accent-text); cursor: pointer; text-align: center; }
+  .btn.small { width: auto; padding: 10px 14px; }
+  .btn.ghost { background: var(--chip); color: var(--link); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .soon { opacity: .75; }
+  .badge { font-size: 12px; font-weight: 600; background: var(--chip); color: var(--hint); padding: 2px 8px;
+           border-radius: 10px; margin-left: 6px; vertical-align: 2px; }
+  .badge.accent { background: var(--chip-on); color: var(--link); }
+  .summary { margin: 0; padding: 0; list-style: none; }
+  .summary li { padding: 6px 0; }
+  .summary li + li { border-top: 1px solid var(--sep); }
+  .warn { background: var(--warn-bg); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-top: 10px; }
+  .drop { display: grid; place-items: center; text-align: center; gap: 4px; border: 2px dashed var(--sep);
+          border-radius: var(--radius); padding: 22px 12px; cursor: pointer; background: var(--card); }
+  .drop .big { font-size: 34px; }
+  .drop input { display: none; }
+  .steps { display: flex; gap: 6px; margin: 0 0 14px; }
+  .steps span { flex: 1; height: 4px; border-radius: 2px; background: var(--chip); }
+  .steps span.on { background: var(--accent); }
+  .meter { height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; margin: 10px 0 4px; }
+  .meter i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  .center { min-height: 70vh; display: grid; place-items: center; text-align: center; color: var(--hint); }
+  .center .big { font-size: 44px; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--chip); border-top-color: var(--accent);
+             border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; left: 16px; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 9;
+           background: color-mix(in srgb, var(--text) 88%, transparent); color: var(--bg); border-radius: 12px;
+           padding: 12px 14px; font-size: 15px; text-align: center; transition: opacity .2s, transform .2s;
+           opacity: 0; transform: translateY(8px); pointer-events: none; max-width: 608px; margin: 0 auto; }
+  .toast.show { opacity: 1; transform: none; }
+  .savebar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+             background: var(--bg); border-top: 1px solid var(--sep); }
+  .savebar .btn { max-width: 608px; margin: 0 auto; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app"><div class="center"><div class="spinner"></div></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const tg = window.Telegram?.WebApp;
+const DEMO = new URLSearchParams(location.search).has("demo");
+const inTelegram = Boolean(tg?.initData);
+// Статический режим (GitHub Pages): бот кладёт состояние в адрес (?s=base64url JSON; #-часть занимает Telegram), а сохранение уходит
+// боту через sendData — сервер не нужен. Без ?s= — серверный режим с API /api/*.
+const STATE = readState();
+const STATIC = Boolean(STATE);
+const MAX_SEND = 4096;  // лимит sendData, байт
+
+function readState() {
+  const raw = new URLSearchParams(location.search).get("s");
+  if (!raw || !/^[A-Za-z0-9_-]+$/.test(raw)) return null;
+  try {
+    const b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0));
+    const s = JSON.parse(new TextDecoder().decode(bytes));
+    const opt = (list) => list.map(([code, label]) => ({ code, label }));
+    return {
+      user: { name: s.n, is_owner: Boolean(s.o), status: s.st, step: s.sp },
+      prefs: s.p,
+      options: { directions: opt(s.d), grades: opt(s.g), cities: s.c },
+      resume: { can_upload: !s.o, title: s.r, summary: s.r ? [`🎯 ${s.r}`] : null, pending: false },
+      queue: s.q,
+      limits: s.l ? { sent_today: s.l[0], daily: s.l[1] } : null,
+      features: { resume_filter: false, payments: false },
+      subscription: { plan: s.o ? "owner" : "beta", paid: false },
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+function send(payload) {
+  const text = JSON.stringify(payload);
+  if (new TextEncoder().encode(text).length > MAX_SEND) {
+    toast("Слишком длинный список компаний — убери несколько");
+    return false;
+  }
+  if (!inTelegram) { toast("Открой приложение из бота — тогда сохранится"); return false; }
+  tg.sendData(text);  // Telegram закрывает приложение, бот отвечает в чате
+  return true;
+}
+if (inTelegram) {
+  document.documentElement.classList.add("tg");
+  tg.ready();
+  tg.expand();
+}
+
+// ---------- API ----------
+async function api(path, options = {}) {
+  if (DEMO && !inTelegram) return demoApi(path, options);
+  const res = await fetch(path, {
+    ...options,
+    headers: { Authorization: "tma " + (tg?.initData || ""), ...(options.json ? { "Content-Type": "application/json" } : {}) },
+    body: options.json ? JSON.stringify(options.json) : options.body,
+  });
+  const data = await res.json().catch(() => ({ error: "Сервер не ответил" }));
+  if (!res.ok) throw Object.assign(new Error(data.error || "Ошибка"), { status: res.status, code: data.code });
+  return data;
+}
+
+// Демо без Telegram: ?demo=1 (и ?demo=friend / ?demo=new / ?demo=owner) — только чтобы посмотреть вёрстку.
+function demoApi(path, options) {
+  const kind = new URLSearchParams(location.search).get("demo") || "friend";
+  const base = {
+    user: { name: "Аня", is_owner: kind === "owner", status: kind === "new" ? "onboarding" : "active", step: kind === "new" ? "directions" : "" },
+    prefs: { directions: ["backend", "ds"], grades: ["intern", "junior"], city: "Казань", office_ok: false, exclude_companies: ["Сбер", "Рога и копыта"] },
+    options: {
+      directions: [["backend", "🐍 Python / backend"], ["ds", "🧠 Data Science"], ["da", "📊 Аналитика данных"], ["de", "🛠 Data Engineering"], ["ml", "🤖 ML / AI"]].map(([code, label]) => ({ code, label })),
+      grades: [["intern", "🎓 Стажировка"], ["junior", "🌱 Junior"], ["middle", "🌿 Middle"]].map(([code, label]) => ({ code, label })),
+      cities: ["Москва", "Санкт-Петербург"],
+    },
+    resume: { can_upload: kind !== "owner", pending: false, summary: kind === "new" ? null : ["👤 Анна Иванова", "📞 +7 900 000-00-00 · ✉️ anna@example.com", "🎯 Python-разработчик", "💼 Стажёр — ACME: пунктов 4", "🧰 Навыков: 18"] },
+    queue: kind === "new" ? null : 37,
+    limits: kind === "owner" ? null : { daily: 20, sent_today: 7 },
+    features: { resume_filter: false, payments: false },
+    subscription: { plan: kind === "owner" ? "owner" : "beta", paid: false },
+  };
+  window.__demo ??= base;
+  return new Promise((ok) => setTimeout(() => {
+    if (path === "/api/prefs") Object.assign(window.__demo, { prefs: options.json, user: { ...window.__demo.user, step: window.__demo.user.status === "onboarding" ? "resume" : "" } });
+    if (path === "/api/resume") return ok({ summary: ["👤 Анна Иванова", "🎯 Python-разработчик", "🧰 Навыков: 18"], missing: ["телефон"] });
+    if (path === "/api/resume/confirm") Object.assign(window.__demo, { user: { ...window.__demo.user, status: "active", step: "" }, queue: 12 });
+    ok(structuredClone(window.__demo));
+  }, 350));
+}
+
+// ---------- состояние ----------
+let me = null;        // ответ /api/me
+let draft = null;     // правки фильтров до сохранения
+let tab = "filters";
+let upload = null;    // { summary, missing } после загрузки резюме — ждёт подтверждения
+let busy = false;
+let reporting = false;
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const haptic = (kind = "select") => {
+  const h = tg?.HapticFeedback; if (!inTelegram || !h) return;
+  kind === "select" ? h.selectionChanged() : h.notificationOccurred(kind);
+};
+
+function toast(text) {
+  const el = $("#toast");
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+function dirty() {
+  return draft && me && !same(normalized(draft), normalized(me.prefs));
+}
+function normalized(p) {
+  return { ...p, directions: [...p.directions].sort(), grades: [...p.grades].sort() };
+}
+
+// ---------- отрисовка ----------
+function render() {
+  const app = $("#app");
+  if (!me) return;
+  const onboarding = me.user.status === "onboarding";
+  const resumeStep = onboarding && me.user.step === "resume";
+  const hello = me.user.name ? `Привет, ${esc(me.user.name.split(" ")[0])}!` : "Привет!";
+  const sub = onboarding
+    ? (resumeStep ? "Шаг 2 из 2 — резюме. После подтверждения сразу подберу вакансии."
+       : STATIC ? "Шаг 1 из 2 — что искать. Потом пришлёшь резюме в чат." : "Шаг 1 из 2 — что искать. Потом загрузишь резюме.")
+    : (me.queue != null ? `В очереди на подборку: ${me.queue}` : "Резюме и фильтры вакансий");
+
+  app.innerHTML = `
+    <h1>${hello}</h1>
+    <p class="sub">${esc(sub)}</p>
+    ${onboarding ? `<div class="steps"><span class="on"></span><span class="${resumeStep ? "on" : ""}"></span></div>` : ""}
+    <div class="tabs" role="tablist">
+      ${[["filters", "🎯 Фильтры"], ["resume", "📄 Резюме"], ["plan", "💳 Подписка"]].map(([id, label]) =>
+        `<button role="tab" data-tab="${id}" aria-selected="${tab === id}">${label}</button>`).join("")}
+    </div>
+    <div id="panel">${tab === "filters" ? filtersView() : tab === "resume" ? resumeView() : planView()}</div>
+    ${!inTelegram && tab === "filters" ? `<div class="savebar"><button class="btn" id="save" ${dirty() || onboarding ? "" : "disabled"}>Сохранить</button></div>` : ""}
+  `;
+  updateMainButton();
+}
+
+function chips(list, selected, name) {
+  return `<div class="chips">${list.map((o) =>
+    `<button class="chip" data-toggle="${name}" data-value="${esc(o.code)}" aria-pressed="${selected.includes(o.code)}">${esc(o.label)}</button>`).join("")}</div>`;
+}
+
+function filtersView() {
+  const p = draft, o = me.options;
+  const known = o.cities.includes(p.city);
+  const otherCity = !known || filtersView.other;
+  const moscow = p.city.trim().toLowerCase() === "москва";
+  return `
+    <div class="section-title">Направления</div>
+    <div class="card">${chips(o.directions, p.directions, "directions")}</div>
+
+    <div class="section-title">Уровень</div>
+    <div class="card">${chips(o.grades, p.grades, "grades")}</div>
+
+    <div class="section-title">Город</div>
+    <div class="card">
+      <div class="chips">
+        ${o.cities.map((c) => `<button class="chip" data-city="${esc(c)}" aria-pressed="${!otherCity && p.city === c}">${esc(c)}</button>`).join("")}
+        <button class="chip" data-city="" aria-pressed="${otherCity}">Другой</button>
+      </div>
+      ${otherCity ? `<input type="text" class="city-other" id="city" maxlength="60" placeholder="Например, Казань" value="${esc(known ? "" : p.city)}" autocomplete="address-level2">` : ""}
+    </div>
+
+    <div class="section-title">Формат работы</div>
+    <div class="card">
+      <div class="row" data-office="0"><span class="radio ${p.office_ok ? "" : "on"}"></span><div class="grow">🏠 Только удалёнка</div></div>
+      <div class="row" data-office="1"><span class="radio ${p.office_ok ? "on" : ""}"></span><div class="grow">🏢 Удалёнка, офис и гибрид
+        <small>Офис и гибрид — в твоём городе</small></div></div>
+    </div>
+    ${p.office_ok && !moscow ? `<p class="note">Офис и гибрид я пока ищу только в Москве; в других городах — удалёнка по всей России.</p>` : ""}
+
+    <div class="section-title">Не присылать вакансии компаний</div>
+    <div class="card">
+      <div class="add">
+        <input type="text" id="company" maxlength="60" placeholder="Название или его часть" enterkeyhint="done">
+        <button class="btn small ghost" id="add-company">Добавить</button>
+      </div>
+      ${p.exclude_companies.length ? `<div class="tags">${p.exclude_companies.map((c, i) =>
+        `<span class="tag">${esc(c)}<button aria-label="Убрать ${esc(c)}" data-remove="${i}">×</button></span>`).join("")}</div>` : ""}
+    </div>
+    <p class="note">«Сбер» уберёт и «ПАО Сбербанк», и «СберСтрахование».</p>
+
+    <div class="section-title">Фильтр по резюме <span class="badge">скоро</span></div>
+    <div class="card soon">
+      <div class="row" style="cursor:default"><div class="grow">🧩 Подбор по навыкам и опыту из резюме
+        <small>Покажу только вакансии, где твоё резюме закрывает нужную долю требований</small></div></div>
+    </div>
+  `;
+}
+
+function resumeView() {
+  const r = me.resume;
+  if (!r.can_upload) {
+    return `
+      <div class="section-title">Резюме</div>
+      <div class="card">${summaryList(r.summary) || "Резюме пока нет"}</div>
+      <p class="note">Твоё резюме — profile/master.yaml: его правят руками, загрузка здесь отключена.</p>`;
+  }
+  if (STATIC) {
+    return `
+      ${r.title ? `<div class="section-title">Сейчас</div><div class="card">🎯 ${esc(r.title)}</div>` : ""}
+      <div class="section-title">${r.title ? "Новое резюме" : "Загрузи резюме"}</div>
+      <div class="card">
+        <p style="margin:0 0 12px">Пришли PDF, скачанный с hh.ru, в чат с ботом: «Мои резюме» → резюме → «Скачать» → PDF.</p>
+        <button class="btn" id="resume-chat">📄 Прислать резюме в чат</button>
+      </div>
+      <p class="note">Под каждую вакансию я меняю в резюме только должность и дописываю недостающие навыки, которые у тебя есть, — остальной текст остаётся твоим, слово в слово.</p>`;
+  }
+  if (busy) {
+    return `<div class="card" style="padding:28px 14px;text-align:center"><div class="spinner"></div><p class="note" style="text-align:center">Разбираю резюме…</p></div>`;
+  }
+  const pending = upload || (r.pending && r.summary ? { summary: r.summary, missing: [] } : null);
+  if (pending) {
+    return `
+      <div class="section-title">Проверь, всё ли на месте</div>
+      <div class="card">
+        ${summaryList(pending.summary)}
+        ${pending.missing?.length ? `<div class="warn">⚠ Не нашёл в PDF дословно: ${esc(pending.missing.join(", "))}</div>` : ""}
+      </div>
+      <p class="note">PDF с тем, как я перенёс резюме, — в чате с ботом.</p>
+      ${reporting ? `
+        <div class="section-title">Что не так</div>
+        <div class="card"><textarea id="comment" maxlength="1000" placeholder="Например: пропал второй пункт опыта"></textarea></div>
+        <div class="btns"><button class="btn ghost" id="report-cancel">Отмена</button><button class="btn" id="report-send">Отправить</button></div>
+        <p class="note">Передам владельцу бота — он поправит. Подбор начнётся сразу.</p>` : `
+        <div class="btns"><button class="btn ghost" id="wrong">✏️ Есть ошибка</button><button class="btn" id="ok">✅ Всё верно</button></div>`}
+      <div class="section-title">Другой файл</div>
+      ${dropZone()}`;
+  }
+  return `
+    ${r.summary ? `<div class="section-title">Сейчас</div><div class="card">${summaryList(r.summary)}</div>` : ""}
+    <div class="section-title">${r.summary ? "Новое резюме" : "Загрузи резюме"}</div>
+    ${dropZone()}
+    <p class="note">Под каждую вакансию я меняю в резюме только должность и дописываю недостающие навыки, которые у тебя есть, — остальной текст остаётся твоим, слово в слово.</p>`;
+}
+
+function dropZone() {
+  return `
+    <label class="drop">
+      <span class="big">📄</span>
+      <b>Выбрать PDF</b>
+      <span class="note" style="margin:0">Скачанный с hh.ru: «Мои резюме» → резюме → «Скачать» → PDF. До 10 МБ.</span>
+      <input type="file" id="file" accept="application/pdf,.pdf">
+    </label>`;
+}
+
+function summaryList(lines) {
+  return lines?.length ? `<ul class="summary">${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "";
+}
+
+function planView() {
+  const s = me.subscription, l = me.limits;
+  const pct = l ? Math.min(100, Math.round((l.sent_today / l.daily) * 100)) : 0;
+  return `
+    <div class="section-title">Твой тариф</div>
+    <div class="card">
+      <div style="font-weight:600;font-size:17px">${s.plan === "owner" ? "👑 Владелец" : "🧪 Бета"}
+        <span class="badge accent">${s.plan === "owner" ? "без лимитов" : "бесплатно"}</span></div>
+      ${l ? `
+        <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${l.daily}" aria-valuenow="${l.sent_today}"><i style="width:${pct}%"></i></div>
+        <small style="color:var(--hint)">Сегодня прислано ${l.sent_today} из ${l.daily} вакансий</small>` : ""}
+    </div>
+    <div class="section-title">Подписка <span class="badge">скоро</span></div>
+    <div class="card soon">
+      <p style="margin:0 0 12px">Скоро здесь можно будет оформить подписку и оплатить её прямо в Telegram.</p>
+      <button class="btn" disabled>Оформить — скоро</button>
+    </div>`;
+}
+
+// ---------- Main Button Telegram ----------
+function updateMainButton() {
+  if (!inTelegram) return;
+  const mb = tg.MainButton;
+  const onboarding = me.user.status === "onboarding" && me.user.step !== "resume";
+  if (tab === "filters" && (dirty() || onboarding)) {
+    mb.setParams({ text: onboarding ? "Дальше — резюме" : "Сохранить фильтры", is_visible: true, is_active: true });
+  } else {
+    mb.hide();
+  }
+}
+
+async function save() {
+  if (busy) return;
+  const city = $("#city");
+  if (city) draft.city = city.value.trim();
+  if (STATIC) {
+    const err = !draft.directions.length ? "Выбери хотя бы одно направление"
+      : !draft.grades.length ? "Выбери хотя бы один уровень" : !draft.city.trim() ? "Укажи город" : "";
+    if (err) { haptic("error"); return toast(err); }
+    haptic("success");
+    send({ v: 1, action: "prefs", prefs: draft });
+    return;
+  }
+  busy = true;
+  if (inTelegram) tg.MainButton.showProgress(false);
+  try {
+    const wasOnboarding = me.user.status === "onboarding";
+    me = await api("/api/prefs", { method: "POST", json: draft });
+    draft = structuredClone(me.prefs);
+    haptic("success");
+    if (wasOnboarding) { tab = "resume"; toast("Фильтры сохранены — теперь резюме"); }
+    else toast(me.queue != null ? `Сохранено. В очереди: ${me.queue}` : "Сохранено");
+  } catch (e) {
+    haptic("error");
+    toast(e.message);
+  } finally {
+    busy = false;
+    if (inTelegram) tg.MainButton.hideProgress();
+    render();
+  }
+}
+
+async function sendFile(file) {
+  if (!file) return;
+  if (!/\.pdf$/i.test(file.name)) return toast("Нужен PDF-файл, скачанный с hh.ru");
+  if (file.size > 10 * 1024 * 1024) return toast("Файл больше 10 МБ");
+  const form = new FormData();
+  form.append("file", file, file.name);
+  busy = true; upload = null; reporting = false; render();
+  try {
+    upload = await api("/api/resume", { method: "POST", body: form });
+    me.user.step = "resume";
+    haptic("success");
+  } catch (e) {
+    haptic("error");
+    toast(e.message);
+  } finally {
+    busy = false; render();
+  }
+}
+
+async function confirm(comment = "") {
+  if (busy) return;
+  busy = true;
+  try {
+    const wasOnboarding = me.user.status === "onboarding";
+    me = await api("/api/resume/confirm", { method: "POST", json: { comment } });
+    draft = structuredClone(me.prefs);
+    upload = null; reporting = false;
+    haptic("success");
+    toast(wasOnboarding ? `🎉 Готово! Подобрал вакансий: ${me.queue ?? 0}` : `✅ Резюме обновлено. В очереди: ${me.queue ?? 0}`);
+    if (wasOnboarding && inTelegram) setTimeout(() => tg.close(), 1600);  // подборка — по кнопке в чате
+  } catch (e) {
+    haptic("error");
+    toast(e.message);
+  } finally {
+    busy = false; render();
+  }
+}
+
+// ---------- события ----------
+document.addEventListener("click", (ev) => {
+  const t = ev.target.closest("button, .row, [data-tab]");
+  if (!t || !me) return;
+  if (t.dataset.tab) { tab = t.dataset.tab; haptic(); render(); window.scrollTo(0, 0); return; }
+  if (t.dataset.toggle) {
+    const list = draft[t.dataset.toggle], v = t.dataset.value;
+    draft[t.dataset.toggle] = list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+    haptic(); return render();
+  }
+  if ("city" in t.dataset) {
+    filtersView.other = !t.dataset.city;
+    if (t.dataset.city) draft.city = t.dataset.city;
+    else if (me.options.cities.includes(draft.city)) draft.city = "";
+    haptic(); render();
+    if (!t.dataset.city) $("#city")?.focus();
+    return;
+  }
+  if ("office" in t.dataset) { draft.office_ok = t.dataset.office === "1"; haptic(); return render(); }
+  if (t.dataset.remove != null) { draft.exclude_companies.splice(Number(t.dataset.remove), 1); haptic(); return render(); }
+  if (t.id === "add-company") return addCompany();
+  if (t.id === "save") return save();
+  if (t.id === "ok") return confirm();
+  if (t.id === "resume-chat") { haptic(); return send({ v: 1, action: "resume" }); }
+  if (t.id === "wrong") { reporting = true; render(); return $("#comment")?.focus(); }
+  if (t.id === "report-cancel") { reporting = false; return render(); }
+  if (t.id === "report-send") {
+    const text = $("#comment").value.trim();
+    return text ? confirm(text) : toast("Опиши, что не так");
+  }
+});
+
+function addCompany() {
+  const input = $("#company");
+  const name = input.value.replace(/\s+/g, " ").trim();
+  if (!name) return;
+  if (!draft.exclude_companies.some((c) => c.toLowerCase() === name.toLowerCase())) draft.exclude_companies.push(name);
+  haptic(); render();
+  $("#company")?.focus();
+}
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && ev.target.id === "company") { ev.preventDefault(); addCompany(); }
+});
+document.addEventListener("input", (ev) => {
+  if (ev.target.id === "city") { draft.city = ev.target.value; updateMainButton(); const s = $("#save"); if (s) s.disabled = !dirty(); }
+});
+document.addEventListener("change", (ev) => {
+  if (ev.target.id === "file") sendFile(ev.target.files[0]);
+});
+if (inTelegram) tg.MainButton.onClick(save);
+
+// ---------- старт ----------
+function fatal(icon, text) {
+  $("#app").innerHTML = `<div class="center"><div><div class="big">${icon}</div><p>${esc(text)}</p></div></div>`;
+  if (inTelegram) tg.MainButton.hide();
+}
+
+(async () => {
+  if (!inTelegram && !DEMO && !STATIC) return fatal("📱", "Открой это приложение из чата с ботом в Telegram.");
+  try {
+    me = STATIC ? STATE : await api("/api/me");
+    draft = structuredClone(me.prefs);
+    if (me.user.status === "onboarding" && me.user.step === "resume") tab = "resume";
+    render();
+  } catch (e) {
+    fatal(e.code === "invite" ? "✉️" : e.code === "consent" ? "💬" : "😕", e.message);
+  }
+})();
+</script>
+</body>
+</html>
