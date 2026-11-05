@@ -175,6 +175,7 @@ function readState() {
       user: { name: s.n, is_owner: Boolean(s.o), status: s.st, step: s.sp },
       prefs: s.p,
       queue: s.q,
+      resume_step: Boolean(s.rs),  // после фильтров попросить резюме (beta.resumes)
       limits: s.l ? { sent_today: s.l[0], daily: s.l[1] } : null,
       subscription: { plan: s.o ? "owner" : "beta", paid: false },
     };
@@ -201,6 +202,7 @@ function demoApi(path, options) {
   const kind = params.get("demo") || "friend";
   window.__demo ??= {
     user: { name: "Аня", is_owner: kind === "owner", status: kind === "new" ? "onboarding" : "active", step: kind === "new" ? "directions" : "" },
+    resume_step: false,
     prefs: { directions: kind === "new" ? [] : ["backend", "frontend"], grades: ["intern", "junior"], city: "Казань",
              formats: ["remote"], salary_min: 60000, only_salary: false, exclude_words: ["senior"], exclude_companies: ["Рога и копыта"] },
     queue: kind === "new" ? null : 37,
@@ -249,13 +251,13 @@ function render() {
   if (!me) return;
   const hello = me.user.name ? `Привет, ${esc(me.user.name.split(" ")[0])}!` : "Привет!";
   const resumeStep = onboarding() && me.user.step === "resume";
-  const sub = onboarding()
-    ? (resumeStep ? "Фильтры сохранены. Шаг 2 из 2 — пришли резюме PDF в чат с ботом." : "Шаг 1 из 2 — что искать. Потом пришлёшь резюме в чат.")
-    : (me.queue != null ? `В очереди на подборку: ${me.queue}` : "Фильтры вакансий");
+  const sub = !onboarding() ? (me.queue != null ? `В очереди на подборку: ${me.queue}` : "Фильтры вакансий")
+    : !me.resume_step ? "Выбери, что искать, — и я сразу начну подбирать вакансии."
+    : resumeStep ? "Фильтры сохранены. Шаг 2 из 2 — пришли резюме PDF в чат с ботом." : "Шаг 1 из 2 — что искать. Потом пришлёшь резюме в чат.";
   $("#app").innerHTML = `
     <h1>${hello}</h1>
     <p class="sub">${esc(sub)}</p>
-    ${onboarding() ? `<div class="steps"><span class="on"></span><span class="${resumeStep ? "on" : ""}"></span></div>` : ""}
+    ${onboarding() && me.resume_step ? `<div class="steps"><span class="on"></span><span class="${resumeStep ? "on" : ""}"></span></div>` : ""}
     <div class="tabs" role="tablist" style="grid-template-columns: repeat(2, 1fr)">
       ${[["filters", "🎯 Фильтры"], ["plan", "💳 Подписка"]].map(([id, label]) =>
         `<button role="tab" data-tab="${id}" aria-selected="${tab === id}">${label}</button>`).join("")}
@@ -391,7 +393,8 @@ function updateSave() {
   if (!inTelegram) return;
   const mb = tg.MainButton;
   if (tab === "filters" && (dirty() || (onboarding() && me.user.step !== "resume"))) {
-    mb.setParams({ text: onboarding() ? "Дальше — резюме" : "Сохранить фильтры", is_visible: true, is_active: true });
+    const text = !onboarding() ? "Сохранить фильтры" : me.resume_step ? "Дальше — резюме" : "Сохранить и начать";
+    mb.setParams({ text, is_visible: true, is_active: true });
   } else {
     mb.hide();
   }
@@ -426,7 +429,8 @@ async function save() {
     me.prefs = normPrefs(me.prefs);
     draft = structuredClone(me.prefs);
     haptic("success");
-    toast(wasOnboarding ? "Фильтры сохранены — теперь пришли резюме в чат" : me.queue != null ? `Сохранено. В очереди: ${me.queue}` : "Сохранено");
+    toast(wasOnboarding && me.resume_step ? "Фильтры сохранены — теперь пришли резюме в чат"
+      : me.queue != null ? `Сохранено. В очереди: ${me.queue}` : "Сохранено");
   } catch (e) {
     haptic("error");
     toast(e.message);
