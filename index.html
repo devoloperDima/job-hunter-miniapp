@@ -125,7 +125,9 @@
 <script>
 "use strict";
 const tg = window.Telegram?.WebApp;
-const inTelegram = Boolean(tg?.initData);
+// Открыто в Telegram? С кнопки на клавиатуре (только так работает sendData) Telegram не передаёт initData —
+// узнаём его по платформе: вне Telegram telegram-web-app.js ставит platform «unknown».
+const inTelegram = Boolean(tg && (tg.initData || (tg.platform && tg.platform !== "unknown")));
 const params = new URLSearchParams(location.search);
 const DEMO = params.has("demo");
 // Справочники (профессии как на hh, уровни, форматы) бот вшивает при публикации — jh miniapp-deploy.
@@ -355,7 +357,7 @@ function planView() {
     <div class="section-title">Твой тариф</div>
     <div class="card">
       <div style="font-weight:600;font-size:17px">${s.plan === "owner" ? "👑 Владелец" : "🧪 Бета"}
-        <span class="badge accent">${s.plan === "owner" ? "без лимитов" : "бесплатно"}</span></div>
+        <span class="badge accent">${s.plan === "owner" ? "без лимитов" : l ? "бесплатно" : "бесплатно, без лимитов"}</span></div>
       ${l ? `
         <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${l.daily}" aria-valuenow="${l.sent_today}"><i style="width:${pct}%"></i></div>
         <small style="color:var(--hint)">Сегодня прислано ${l.sent_today} из ${l.daily} вакансий</small>` : ""}
