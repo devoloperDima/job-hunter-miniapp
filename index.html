@@ -163,6 +163,7 @@ function normPrefs(p = {}) {
     only_salary: Boolean(p.only_salary),
     exclude_words: p.exclude_words || [],
     exclude_companies: p.exclude_companies || [],
+    min_match: p.min_match || 0,
   };
 }
 
@@ -178,6 +179,7 @@ function readState() {
       prefs: s.p,
       queue: s.q,
       resume_step: Boolean(s.rs),  // после фильтров попросить резюме (beta.resumes)
+      resume: s.rm ?? 0,  // 0 — резюме нет, 1 — есть (фильтр по совпадению), 2 — владелец / подстройка резюме
       limits: s.l ? { sent_today: s.l[0], daily: s.l[1] } : null,
       subscription: { plan: s.o ? "owner" : "beta", paid: false },
     };
@@ -205,6 +207,7 @@ function demoApi(path, options) {
   window.__demo ??= {
     user: { name: "Аня", is_owner: kind === "owner", status: kind === "new" ? "onboarding" : "active", step: kind === "new" ? "directions" : "" },
     resume_step: false,
+    resume: kind === "owner" ? 2 : kind === "new" ? 0 : 1,
     prefs: { directions: kind === "new" ? [] : ["backend", "frontend"], grades: ["intern", "junior"], city: "Казань",
              formats: ["remote"], salary_min: 60000, only_salary: false, exclude_words: ["senior"], exclude_companies: ["Рога и копыта"] },
     queue: kind === "new" ? null : 37,
@@ -273,7 +276,7 @@ function render() {
 
 function chips(list, selected, name) {
   return `<div class="chips">${list.map(([code, label]) =>
-    `<button class="chip" data-toggle="${name}" data-value="${esc(code)}" aria-pressed="${selected.includes(code)}">${esc(label)}</button>`).join("")}</div>`;
+    `<button class="chip" data-toggle="${name}" data-value="${esc(code)}" aria-pressed="${selected.map(String).includes(String(code))}">${esc(label)}</button>`).join("")}</div>`;
 }
 
 function tags(list, kind) {
@@ -342,13 +345,29 @@ function filtersView() {
     <div class="card">${tagInput("exclude_companies", "Название или его часть", LIMITS.company_len)}${tags(p.exclude_companies, "exclude_companies")}</div>
     <p class="note">«Сбер» уберёт и «ПАО Сбербанк», и «СберСтрахование».</p>
 
-    <div class="section-title">Фильтр по резюме <span class="badge">скоро</span></div>
-    <div class="card soon">
-      <div class="row" style="cursor:default"><div class="grow">🧩 Подбор по навыкам и опыту из резюме
-        <small>Покажу только вакансии, где твоё резюме закрывает нужную долю требований</small></div></div>
-    </div>
+    ${resumeView()}
   `;
 }
+
+function resumeView() {
+  if (me.resume === 2) return "";  // владелец: профиль в master.yaml, резюме и так подстраивается
+  if (me.resume === 1) {
+    return `
+    <div class="section-title">Совпадение с резюме</div>
+    <div class="card">${chips(MATCH_OPTIONS, [draft.min_match], "min_match")}</div>
+    <p class="note">Доля требований вакансии, которые закрывает твоё резюме. Лучшие по совпадению — первыми в подборке.
+      ${STATIC && !onboarding() ? `<button class="link" id="resume-chat">Обновить резюме</button>` : ""}</p>`;
+  }
+  return `
+    <div class="section-title">Подбор по резюме <span class="badge">по желанию</span></div>
+    <div class="card">
+      <p style="margin:0 0 12px">Пришли резюме ссылкой на hh.ru или PDF-файлом — буду присылать вакансии, которые лучше всего к нему подходят, с процентом совпадения.</p>
+      ${STATIC && !onboarding() ? `<button class="btn ghost" id="resume-chat">📄 Добавить резюме</button>`
+        : `<p class="note" style="margin:0">Можно прислать в чат с ботом после настройки.</p>`}
+    </div>`;
+}
+
+const MATCH_OPTIONS = [["0", "Любое"], ["30", "от 30%"], ["50", "от 50%"], ["70", "от 70%"]];
 
 function planView() {
   const s = me.subscription, l = me.limits;
@@ -459,6 +478,11 @@ document.addEventListener("click", (ev) => {
   const t = ev.target.closest("button, .row, [data-tab]");
   if (!t || !me) return;
   if (t.dataset.tab) { tab = t.dataset.tab; haptic(); render(); window.scrollTo(0, 0); return; }
+  if (t.dataset.toggle === "min_match") { draft.min_match = Number(t.dataset.value); haptic(); return render(); }
+  if (t.id === "resume-chat") {  // бот попросит резюме в чате; приложение закроется
+    if (!inTelegram) return toast("Открой приложение из бота");
+    haptic(); tg.sendData(JSON.stringify({ v: 2, action: "resume" })); return;
+  }
   if (t.dataset.toggle) {
     const key = t.dataset.toggle, v = t.dataset.value, list = draft[key];
     draft[key] = list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
